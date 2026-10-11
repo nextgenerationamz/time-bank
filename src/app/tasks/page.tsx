@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 
 import { TaskCard } from "@/components/tasks/task-card";
 import { TaskFilters } from "@/components/tasks/task-filters";
-import type { TaskSummary } from "@/lib/task";
-import { createClient } from "@/lib/supabase/server";
+import { getSession, getTasks } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "任務大廳",
@@ -28,24 +27,10 @@ export default async function TasksPage({
   const status = params.status ?? "";
   const enterprise = params.enterprise ?? "";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user } = await getSession();
   if (!user) redirect("/login");
 
-  let query = supabase
-    .from("tasks_public")
-    .select("*")
-    .order("scheduled_at", { ascending: true, nullsFirst: false });
-
-  if (district) query = query.eq("district", district);
-  if (category) query = query.eq("category", category);
-  if (status === "OPEN" || status === "MATCHED") query = query.eq("status", status);
-  if (enterprise === "1") query = query.not("enterprise_tag_id", "is", null);
-
-  const { data, error } = await query;
-  const tasks = (data ?? []) as TaskSummary[];
+  const tasks = await getTasks({ district, category, status, enterprise });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
@@ -61,9 +46,7 @@ export default async function TasksPage({
         enterprise={enterprise}
       />
 
-      {error ? (
-        <p className="mt-6 text-sm text-destructive">載入任務失敗，請稍後再試。</p>
-      ) : tasks.length > 0 ? (
+      {tasks.length > 0 ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} />

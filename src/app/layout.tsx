@@ -4,7 +4,7 @@ import { HeartHandshake } from "lucide-react";
 import "./globals.css";
 import { SiteHeader, type HeaderUser } from "@/components/site-header";
 import { SITE_NAME } from "@/constants/hongkong";
-import { createClient } from "@/lib/supabase/server";
+import { getSession } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: {
@@ -33,40 +33,15 @@ const elderlyModeScript = `
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  let headerUser: HeaderUser = null;
+  const { user, profile } = await getSession();
 
-  try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (user) {
-      let displayName: string | null = null;
-      let role: string | null = null;
-
-      try {
-        const { data: profile } = await supabase
-          .from("user_profiles")
-          .select("display_name, role")
-          .eq("id", user.id)
-          .maybeSingle();
-        displayName = profile?.display_name ?? null;
-        role = profile?.role ?? null;
-      } catch {
-        // 忽略 profile 查詢錯誤
+  const headerUser: HeaderUser = user
+    ? {
+        email: user.email,
+        displayName: profile?.display_name ?? null,
+        role: profile?.role ?? null,
       }
-
-      headerUser = {
-        email: user.email ?? null,
-        displayName,
-        role,
-      };
-    }
-  } catch {
-    // 尚未設定 Supabase 環境變數或連線失敗時，以未登入狀態呈現
-    headerUser = null;
-  }
+    : null;
 
   return (
     <html lang="zh-HK" suppressHydrationWarning>

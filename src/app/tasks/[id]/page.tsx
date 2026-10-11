@@ -25,9 +25,8 @@ import {
   formatCredits,
   formatDuration,
   formatScheduledAt,
-  type TaskDetail,
 } from "@/lib/task";
-import { createClient } from "@/lib/supabase/server";
+import { getSession, getTaskDetail } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -40,16 +39,13 @@ export default async function TaskDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+
+  const { user } = await getSession();
   if (!user) redirect("/login");
 
-  const { data, error } = await supabase.rpc("get_task_detail", { p_task_id: id });
-  const task = Array.isArray(data) ? (data as TaskDetail[])[0] : null;
+  const task = await getTaskDetail(id);
 
-  if (error || !task) {
+  if (!task) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
         <h1 className="text-xl font-semibold">任務不存在或已移除</h1>

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { USER_ROLE_LABELS, type UserRole } from "@/constants/hongkong";
 import { formatCredits } from "@/lib/task";
-import { createClient } from "@/lib/supabase/server";
+import { getSession } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -22,19 +22,8 @@ export const metadata: Metadata = {
 };
 
 export default async function AccountPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getSession();
   if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select(
-      "display_name, email, role, credit_balance, credit_line, is_verified, company_id"
-    )
-    .eq("id", user.id)
-    .single();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">

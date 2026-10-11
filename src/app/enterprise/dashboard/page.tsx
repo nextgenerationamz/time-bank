@@ -12,8 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+import { getEnterpriseDashboard, getSession } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -21,17 +20,8 @@ export const metadata: Metadata = {
 };
 
 export default async function EnterpriseDashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getSession();
   if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("company_id, display_name")
-    .eq("id", user.id)
-    .single();
 
   const companyId = profile?.company_id;
   if (!companyId) {
@@ -48,15 +38,8 @@ export default async function EnterpriseDashboardPage() {
     );
   }
 
-  const admin = createAdminClient();
-
-  const { data: enterprise } = await admin
-    .from("enterprises")
-    .select("id, name, logo_url, sponsored_pool_credits, total_contributed_hkd")
-    .eq("id", companyId)
-    .single();
-
-  if (!enterprise) {
+  const dashboard = await getEnterpriseDashboard(companyId);
+  if (!dashboard) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20 text-center">
         <h1 className="text-xl font-semibold">企業不存在</h1>
@@ -65,26 +48,10 @@ export default async function EnterpriseDashboardPage() {
     );
   }
 
-  // ESG 服務紀錄（企業員工服務歷程）
-  const { data: logs } = await admin
-    .from("esg_service_logs")
-    .select("user_id, service_hours")
-    .eq("enterprise_id", companyId);
-
-  const totalServiceHours = (logs ?? []).reduce(
-    (sum, row) => sum + Number(row.service_hours ?? 0),
-    0
-  );
-  const employeeCount = new Set((logs ?? []).map((row) => row.user_id)).size;
-
-  // 認領資助長者人次：企業認領的任務中，不重複的發布者（長者）
-  const { data: sponsoredTasks } = await admin
-    .from("tasks")
-    .select("creator_id")
-    .eq("enterprise_tag_id", companyId);
-  const elderlyBeneficiaries = new Set(
-    (sponsoredTasks ?? []).map((row) => row.creator_id)
-  ).size;
+  const { enterprise, stats } = dashboard;
+  const totalServiceHours = stats.totalServiceHours;
+  const employeeCount = stats.employeeCount;
+  const elderlyBeneficiaries = stats.elderlyBeneficiaries;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-12">
